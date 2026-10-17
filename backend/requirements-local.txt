@@ -1,0 +1,5 @@
+# Only needed on the machine that runs the local DeepSeek worker
+huggingface_hub>=0.23
+transformers>=4.44
+torch>=2.2
+pytesseract>=0.3.10

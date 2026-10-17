@@ -1,0 +1,33 @@
+x-backend: &backend
+  build: ./backend
+  env_file: .env
+  environment:
+    POSTGRES_HOST: db
+    REDIS_URL: redis://redis:6379/0
+    AUTOMCS_DATA_ROOT: /data
+    AUTOMCS_MODELS_ROOT: /models
+  volumes: ["${AUTOMCS_DATA_HOST}:/data", "${AUTOMCS_MODELS_HOST}:/models"]   # survive redeploys
+  depends_on: [db, redis]
+
+services:
+  db:
+    image: postgres:16
+    env_file: .env
+    volumes: ["${AUTOMCS_PGDATA_HOST}:/var/lib/postgresql/data"]
+  redis:
+    image: redis:7
+  backend:
+    <<: *backend
+    command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn config.wsgi -b 0.0.0.0:8000 --workers 3 --timeout 120"
+    ports: ["8000:8000"]
+  worker:        # Gemini + exports
+    <<: *backend
+    command: celery -A config worker -Q default -c 2 -l info
+  worker-local:  # holds the local model in memory: keep concurrency at 1
+    <<: *backend
+    command: celery -A config worker -Q local -c 1 -l info
+  frontend:
+    build: ./frontend
+    ports: ["3000:3000"]
+    environment: { BACKEND_URL: "http://backend:8000" }
+    depends_on: [backend]
