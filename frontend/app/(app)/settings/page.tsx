@@ -2,24 +2,179 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, msg } from "@/lib/api";
 import { useWs } from "@/lib/workspace";
-import { Badge, Button, Card, Field, Input, Notice, PageHeader, Select, statusTone } from "@/components/ui";
+import { Badge, Button, Card, Field, Input, Notice, PageHeader, Select } from "@/components/ui";
+
 export default function Settings() {
-  const { user } = useWs(); const [m, setM] = useState<any>(null); const [s, setS] = useState<any>(null); const [err, setErr] = useState(""); const [ok, setOk] = useState("");
-  const load = useCallback(() => { api("/models/local/status/").then(setM).catch((e) => setErr(msg(e))); }, []);
-  useEffect(() => { load(); if (user.is_admin) api("/settings/").then(setS).catch(() => {}); }, [load, user.is_admin]);
-  useEffect(() => { if (!m || !["downloading", "loading"].includes(m.status)) return; const t = setInterval(load, 2500); return () => clearInterval(t); }, [m, load]);
-  return (<><PageHeader title="Settings" />{err && <Notice tone="bad">{err}</Notice>}
-    <div className="grid gap-4 lg:grid-cols-2">
-      <Card><div className="flex items-center justify-between"><h2 className="font-semibold">Local DeepSeek 1.5B</h2>{m && <Badge tone={statusTone(m.status)}>{m.status}</Badge>}</div>
-        {m && <><p className="mt-2 text-sm text-muted">{m.repo} @ {m.revision || "no pinned revision"}<br />{m.path}</p>
-          <div className="mt-3 h-2 overflow-hidden rounded bg-soft"><div className="h-full bg-accent" style={{ width: `${m.progress}%` }} /></div>
-          <p className="mt-2 text-xs text-muted">{m.detail || (m.installed ? "Files installed and verified." : "Files not installed.")} · auto-download {m.auto_download ? "on" : "off"} · {m.loaded ? "loaded in this process" : "not loaded here"}</p>
-          {m.problems.length > 0 && <div className="mt-2"><Notice tone="bad">{m.problems.join(" ")}</Notice></div>}</>}
-        {user.is_admin ? <Button className="mt-3" onClick={() => api("/models/local/prepare/", { json: {} }).then(() => { setOk("Preparation queued."); setTimeout(load, 1500); }).catch((e) => setErr(msg(e)))}>Download / load now</Button> : <p className="mt-3 text-xs text-muted">Only administrators can start model preparation.</p>}
-        {ok && <p className="mt-2 text-xs text-ok">{ok}</p>}</Card>
-      {user.is_admin && s && <Card><h2 className="font-semibold">Site and provider settings</h2>
-        <Field label="Default provider"><Select value={s.default_provider} onChange={(e: any) => setS({ ...s, default_provider: e.target.value })}><option value="gemini">Gemini API</option><option value="deepseek">Local DeepSeek</option></Select></Field>
-        {["gemini_model", "supervisor", "institution", "contact_email"].map((k) => <Field key={k} label={k.replace("_", " ")}><Input value={s[k] || ""} onChange={(e: any) => setS({ ...s, [k]: e.target.value })} /></Field>)}
-        <p className="mt-2 text-xs text-muted">The Gemini API key is read from the server environment and is never shown here.</p>
-        <Button variant="primary" className="mt-3" onClick={() => api("/settings/", { method: "PATCH", json: s }).then(() => setOk("Saved.")).catch((e) => setErr(msg(e)))}>Save</Button></Card>}</div></>);
+  const { user } = useWs();
+  const [s, setS] = useState<any>(null);
+  const [keys, setKeys] = useState<{ [key: string]: string }>({
+    gemini_api_key_1: "",
+    gemini_api_key_2: "",
+    gemini_api_key_3: "",
+    gemini_api_key_4: "",
+  });
+  const [err, setErr] = useState("");
+  const [ok, setOk] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(() => {
+    if (user.is_admin) {
+      api("/settings/")
+        .then((data) => {
+          setS(data);
+          setKeys({
+            gemini_api_key_1: data.gemini_api_key_1 || "",
+            gemini_api_key_2: data.gemini_api_key_2 || "",
+            gemini_api_key_3: data.gemini_api_key_3 || "",
+            gemini_api_key_4: data.gemini_api_key_4 || "",
+          });
+        })
+        .catch((e) => setErr(msg(e)));
+    }
+  }, [user.is_admin]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Periodic poll if any key is cooling down
+  useEffect(() => {
+    if (!s?.gemini_keys?.some((k: any) => k.cooling)) return;
+    const t = setInterval(load, 3000);
+    return () => clearInterval(t);
+  }, [s, load]);
+
+  const save = async () => {
+    setSaving(true);
+    setErr("");
+    setOk("");
+    try {
+      const payload = { ...s, ...keys };
+      const updated = await api("/settings/", { method: "PATCH", json: payload });
+      setS(updated);
+      setOk("Settings saved successfully.");
+    } catch (e) {
+      setErr(msg(e));
+    }
+    setSaving(false);
+  };
+
+  const resetCooldowns = async () => {
+    setErr("");
+    setOk("");
+    try {
+      const updated = await api("/settings/", { method: "PATCH", json: { reset_cooldowns: true } });
+      setS(updated);
+      setOk("Key cooldowns reset.");
+    } catch (e) {
+      setErr(msg(e));
+    }
+  };
+
+  return (
+    <>
+      <PageHeader title="Settings" />
+      {err && <div className="mb-3"><Notice tone="bad">{err}</Notice></div>}
+      {ok && <div className="mb-3"><Notice tone="ok">{ok}</Notice></div>}
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Gemini Multi-Key Pool (API 1 - 4)</h2>
+            <Badge tone="brand">Auto-Failover Active</Badge>
+          </div>
+          <p className="mt-2 text-sm text-muted">
+            Configure up to 4 Gemini API keys. When one key runs out of tokens or hits quota limits (HTTP 429), AutoMCS automatically switches to the next available key (1 → 2 → 3 → 4) so extraction is not interrupted.
+          </p>
+
+          <div className="mt-4 space-y-3">
+            {[1, 2, 3, 4].map((idx) => {
+              const info = s?.gemini_keys?.find((k: any) => k.index === idx);
+              const keyField = `gemini_api_key_${idx}`;
+              return (
+                <div key={idx} className="rounded-lg border border-line p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Gemini API {idx}</span>
+                    {info?.cooling ? (
+                      <Badge tone="warn">Rate-limited ({info.cooldown_remaining}s)</Badge>
+                    ) : info?.configured ? (
+                      <Badge tone="ok">Ready ({info.source})</Badge>
+                    ) : (
+                      <Badge tone="muted">Not configured</Badge>
+                    )}
+                  </div>
+                  {user.is_admin ? (
+                    <div className="mt-2">
+                      <Input
+                        type="password"
+                        placeholder={info?.masked ? `Configured (${info.masked})` : `Paste Gemini API Key ${idx}...`}
+                        value={keys[keyField] || ""}
+                        onChange={(e: any) => setKeys({ ...keys, [keyField]: e.target.value })}
+                      />
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-xs text-muted">
+                      {info?.masked ? `Key: ${info.masked}` : "Key not configured."}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {user.is_admin && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button variant="primary" disabled={saving} onClick={save}>
+                {saving ? "Saving..." : "Save API keys"}
+              </Button>
+              {s?.gemini_keys?.some((k: any) => k.cooling) && (
+                <Button onClick={resetCooldowns}>Reset key cooldowns</Button>
+              )}
+            </div>
+          )}
+        </Card>
+
+        {user.is_admin && s && (
+          <Card>
+            <h2 className="font-semibold">Site and Extraction Settings</h2>
+            <div className="mt-3 space-y-3">
+              <Field label="Default provider">
+                <Select
+                  value={s.default_provider || "gemini"}
+                  onChange={(e: any) => setS({ ...s, default_provider: e.target.value })}
+                >
+                  <option value="gemini">Gemini API (Auto-switch 1-4)</option>
+                  <option value="gemini_1">Gemini API 1</option>
+                  <option value="gemini_2">Gemini API 2</option>
+                  <option value="gemini_3">Gemini API 3</option>
+                  <option value="gemini_4">Gemini API 4</option>
+                </Select>
+              </Field>
+
+              <Field label="Gemini vision model">
+                <Input
+                  value={s.gemini_model || ""}
+                  placeholder="gemini-3.8-flash"
+                  onChange={(e: any) => setS({ ...s, gemini_model: e.target.value })}
+                />
+              </Field>
+
+              {["supervisor", "institution", "contact_email"].map((k) => (
+                <Field key={k} label={k.replace("_", " ")}>
+                  <Input
+                    value={s[k] || ""}
+                    onChange={(e: any) => setS({ ...s, [k]: e.target.value })}
+                  />
+                </Field>
+              ))}
+            </div>
+
+            <Button variant="primary" className="mt-4" disabled={saving} onClick={save}>
+              {saving ? "Saving..." : "Save settings"}
+            </Button>
+          </Card>
+        )}
+      </div>
+    </>
+  );
 }

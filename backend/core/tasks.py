@@ -2,10 +2,10 @@ import logging
 from celery import shared_task
 from django.utils import timezone
 from .models import ExportJob, ExtractionJob
-from .services import exporter, model_manager
+from .services import exporter
 from .services.files import render_page_png
 from .services.providers.base import ProviderError
-from .services.providers.deepseek import get_provider
+from .services.providers import get_provider
 from .services.tables import save_prediction
 
 log = logging.getLogger(__name__)
@@ -64,4 +64,5 @@ def run_export(export_id):
 
 @shared_task
 def prepare_local_model():
-    model_manager.ensure_ready()
+    pass
+

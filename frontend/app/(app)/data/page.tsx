@@ -75,13 +75,22 @@ export default function Data() {
     setUploading(false);
   };
 
-  const extract = async () => {
-    if (!pid || !provider) return;
+  const extractDocs = async (targetDocs: number[]) => {
+    if (!pid || !provider || !targetDocs.length) return;
     setExtracting(true); setErr("");
-    try { const job = await api(`/projects/${pid}/extract/`, { json: { provider, document_ids: docs.map((doc: any) => doc.id) } }); setJobId(job.id); setNotice("Extraction started. Processing documents now..."); await load(); }
-    catch (e) { setErr(msg(e)); }
+    try {
+      const job = await api(`/projects/${pid}/extract/`, { json: { provider, document_ids: targetDocs } });
+      setJobId(job.id);
+      setNotice(`Extraction started for ${targetDocs.length} document(s). Processing now...`);
+      await load();
+    } catch (e) {
+      setErr(msg(e));
+    }
     setExtracting(false);
   };
+  const extractAll = () => extractDocs(docs.map((doc: any) => doc.id));
+  const extractSelected = () => extractDocs(selected);
+
   const removeSelected = async () => {
     if (!pid || !selected.length || !confirm(`Delete ${selected.length} selected document(s)? This also removes their extracted data.`)) return;
     setErr(""); setNotice("Deleting selected documents...");
@@ -106,8 +115,41 @@ export default function Data() {
       {err && <div className="mt-3"><Notice tone="bad">{err}</Notice></div>}
     </Card>
 
-    <Card className="mt-4"><div className="flex flex-wrap items-end justify-between gap-3"><Field label="AI provider"><Select value={provider} onChange={(e: any) => setProvider(e.target.value)}><option value="">Select a ready provider</option>{providers.map((item: any) => <option key={item.name} value={item.name} disabled={!item.ready}>{item.label || item.name}{!item.ready ? " (not ready)" : ""}</option>)}</Select></Field><Button variant="primary" disabled={!provider || !docs.length || extracting || !!jobId} onClick={extract}>{extracting || jobId ? "Extracting..." : "Extract all documents"}</Button></div>{providers.filter((item: any) => !item.ready).map((item: any) => <p key={item.name} className="mt-2 text-xs text-warn">{item.label || item.name}: {item.problems?.join("; ")}</p>)}</Card>
+    <Card className="mt-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <Field label="AI provider">
+          <Select value={provider} onChange={(e: any) => setProvider(e.target.value)}>
+            <option value="">Select a ready provider</option>
+            {providers.map((item: any) => <option key={item.name} value={item.name} disabled={!item.ready}>{item.label || item.name}{!item.ready ? " (not ready)" : ""}</option>)}
+          </Select>
+        </Field>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="primary" disabled={!provider || !selected.length || extracting || !!jobId} onClick={extractSelected}>
+            {extracting || jobId ? "Extracting..." : `Extract selected (${selected.length})`}
+          </Button>
+          <Button disabled={!provider || !docs.length || extracting || !!jobId} onClick={extractAll}>
+            {extracting || jobId ? "Extracting..." : "Extract all documents"}
+          </Button>
+        </div>
+      </div>
+      {providers.filter((item: any) => !item.ready).map((item: any) => <p key={item.name} className="mt-2 text-xs text-warn">{item.label || item.name}: {item.problems?.join("; ")}</p>)}
+    </Card>
 
-    <div className="mt-4"><div className="mb-2 flex items-center justify-between"><label className="flex items-center gap-2 text-sm text-muted"><input type="checkbox" checked={!!docs.length && selected.length === docs.length} onChange={(e) => toggleAll(e.target.checked)} /> Select all</label><Button size="sm" variant="danger" disabled={!selected.length} onClick={removeSelected}>Delete selected ({selected.length})</Button></div><Table><thead className="bg-soft text-muted"><tr><th className="p-2"><span className="sr-only">Select</span></th><th>Document</th><th>Type</th><th>Size</th><th>Pages</th><th>Status</th><th /></tr></thead><tbody>{docs.map((doc: any) => <tr key={doc.id} className="border-t border-line"><td className="p-2"><input type="checkbox" checked={selected.includes(doc.id)} onChange={() => toggle(doc.id)} aria-label={`Select ${doc.original_name}`} /></td><td>{doc.relative_path || doc.original_name}</td><td>{doc.kind}</td><td>{size(doc.size)}</td><td>{doc.page_count}</td><td><Badge tone={statusTone(doc.status)}>{doc.status}</Badge></td><td><Link className="text-brand underline" href={`/verify/${doc.id}`}>Compare</Link></td></tr>)}{!docs.length && <tr><td colSpan={7} className="p-5 text-center text-muted">No documents yet. Import images, a folder, or PDFs above.</td></tr>}</tbody></Table></div>
+    <div className="mt-4">
+      <div className="mb-2 flex items-center justify-between">
+        <label className="flex items-center gap-2 text-sm text-muted">
+          <input type="checkbox" checked={!!docs.length && selected.length === docs.length} onChange={(e) => toggleAll(e.target.checked)} /> Select all
+        </label>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="primary" disabled={!provider || !selected.length || extracting || !!jobId} onClick={extractSelected}>
+            Extract selected ({selected.length})
+          </Button>
+          <Button size="sm" variant="danger" disabled={!selected.length} onClick={removeSelected}>
+            Delete selected ({selected.length})
+          </Button>
+        </div>
+      </div>
+      <Table><thead className="bg-soft text-muted"><tr><th className="p-2"><span className="sr-only">Select</span></th><th>Document</th><th>Type</th><th>Size</th><th>Pages</th><th>Status</th><th /></tr></thead><tbody>{docs.map((doc: any) => <tr key={doc.id} className="border-t border-line"><td className="p-2"><input type="checkbox" checked={selected.includes(doc.id)} onChange={() => toggle(doc.id)} aria-label={`Select ${doc.original_name}`} /></td><td>{doc.relative_path || doc.original_name}</td><td>{doc.kind}</td><td>{size(doc.size)}</td><td>{doc.page_count}</td><td><Badge tone={statusTone(doc.status)}>{doc.status}</Badge></td><td><Link className="text-brand underline" href={`/verify/${doc.id}`}>Compare</Link></td></tr>)}{!docs.length && <tr><td colSpan={7} className="p-5 text-center text-muted">No documents yet. Import images, a folder, or PDFs above.</td></tr>}</tbody></Table>
+    </div>
   </>);
 }

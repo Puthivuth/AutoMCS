@@ -40,11 +40,10 @@ TEMPLATES = [{
 
 # ---- Persistent storage: keep OUTSIDE the replaceable source directory in production ----
 DATA_ROOT = Path(env("AUTOMCS_DATA_ROOT", BASE_DIR.parent / "data"))
-MODELS_ROOT = Path(env("AUTOMCS_MODELS_ROOT", BASE_DIR.parent / "models"))
 ORIGINALS_DIR = DATA_ROOT / "originals"
 EXPORTS_DIR = DATA_ROOT / "exports"
 TEMP_DIR = DATA_ROOT / "temporary"
-for _d in (ORIGINALS_DIR, EXPORTS_DIR, TEMP_DIR, MODELS_ROOT):
+for _d in (ORIGINALS_DIR, EXPORTS_DIR, TEMP_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 if env("POSTGRES_HOST"):
@@ -92,12 +91,11 @@ AUTOMCS = {
     "MAX_BATCH_FILES": int(env("MAX_BATCH_FILES", 200)),
     "ROUNDING": "ROUND_HALF_UP",        # confirm against the research protocol
     "GEMINI_API_KEY": env("GEMINI_API_KEY", ""),
-    "GEMINI_MODEL": env("GEMINI_MODEL", ""),   # also editable by an admin in SiteSettings
-    "LOCAL_MODEL_REPO": env("LOCAL_MODEL_REPO", "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"),
-    "LOCAL_MODEL_REVISION": env("LOCAL_MODEL_REVISION", ""),  # MUST be a pinned commit hash
-    "LOCAL_MODEL_DIR": Path(env("LOCAL_MODEL_DIR", MODELS_ROOT / "deepseek-1.5b")),
-    "AUTO_DOWNLOAD": flag("LOCAL_MODEL_AUTO_DOWNLOAD", True),
-    "OCR_ENGINE": env("OCR_ENGINE", "tesseract"),
+    "GEMINI_API_KEY_1": env("GEMINI_API_KEY_1", env("GEMINI_API_KEY", "")),
+    "GEMINI_API_KEY_2": env("GEMINI_API_KEY_2", ""),
+    "GEMINI_API_KEY_3": env("GEMINI_API_KEY_3", ""),
+    "GEMINI_API_KEY_4": env("GEMINI_API_KEY_4", ""),
+    "GEMINI_MODEL": env("GEMINI_MODEL", "gemini-3.8-flash"),   # also editable by an admin in SiteSettings
 }
 LOGGING = {"version": 1, "disable_existing_loggers": False,
            "handlers": {"c": {"class": "logging.StreamHandler"}}, "root": {"handlers": ["c"], "level": "INFO"}}

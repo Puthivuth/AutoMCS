@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card } from "@/components/ui";
-const steps = [["Import", "Images, whole folders, or PDFs, kept in isolated projects."], ["Extract", "Choose Gemini or a local DeepSeek pipeline for each job."],
+const steps = [["Import", "Images, whole folders, or PDFs, kept in isolated projects."], ["Extract", "Automated table extraction with multi-key Gemini API failover."],
   ["Verify", "Compare the source beside the table, correct, then approve."], ["Evaluate", "Measure accuracy against verified labels only."], ["Export", "Originals plus JSON and CSV ground truth in one ZIP."]];
 export default function Home() {
   return (<>

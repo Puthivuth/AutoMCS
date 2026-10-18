@@ -1,15 +1,12 @@
 x-backend: &backend
   build:
     context: ./backend
-    args:
-      INSTALL_LOCAL: ${INSTALL_LOCAL:-0}
   env_file: .env
   environment:
     POSTGRES_HOST: db
     REDIS_URL: redis://redis:6379/0
     AUTOMCS_DATA_ROOT: /data
-    AUTOMCS_MODELS_ROOT: /models
-  volumes: ["${AUTOMCS_DATA_HOST}:/data", "${AUTOMCS_MODELS_HOST}:/models"]   # survive redeploys
+  volumes: ["${AUTOMCS_DATA_HOST}:/data"]   # survive redeploys
   depends_on:
     db:
       condition: service_healthy
@@ -35,14 +32,6 @@ services:
   worker:        # Gemini + exports
     <<: *backend
     command: celery -A config worker -Q default -c 2 -l info
-  worker-local:  # holds the local model in memory: keep concurrency at 1
-    <<: *backend
-    build:
-      context: ./backend
-      args:
-        INSTALL_LOCAL: "1"
-    profiles: [local]
-    command: celery -A config worker -Q local -c 1 -l info
   frontend:
     build:
       context: ./frontend
@@ -51,3 +40,4 @@ services:
     ports: ["3000:3000"]
     environment: { BACKEND_URL: "http://backend:8000" }
     depends_on: [backend]
+

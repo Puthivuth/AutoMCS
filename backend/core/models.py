@@ -201,6 +201,10 @@ class ModelInstallation(models.Model):
 class SiteSettings(models.Model):
     default_provider = models.CharField(max_length=20, default="gemini")
     gemini_model = models.CharField(max_length=120, blank=True)
+    gemini_api_key_1 = models.CharField(max_length=200, blank=True)
+    gemini_api_key_2 = models.CharField(max_length=200, blank=True)
+    gemini_api_key_3 = models.CharField(max_length=200, blank=True)
+    gemini_api_key_4 = models.CharField(max_length=200, blank=True)
     supervisor = models.CharField(max_length=160, blank=True)
     institution = models.CharField(max_length=200, blank=True)
     contact_email = models.EmailField(blank=True)
@@ -208,6 +212,7 @@ class SiteSettings(models.Model):
     @classmethod
     def get(cls):
         return cls.objects.get_or_create(pk=1)[0]
+
 
 
 class DatasetVersion(models.Model):

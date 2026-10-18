@@ -8,5 +8,3 @@ gunicorn>=22.0
 Pillow>=10.0
 pypdfium2>=4.30
 google-genai>=0.3
-pytesseract>=0.3.10
-pytesseract>=0.3.10

@@ -12,7 +12,7 @@ export default function Evaluation() {
   const run = async () => { setBusy(true); setErr(""); try { await api(`/projects/${pid}/evaluations/`, { json: { provider: prov, tolerance: tol } }); load(); } catch (e) { setErr(msg(e)); } setBusy(false); };
   const last = runs[0]?.metrics;
   return (<><PageHeader title="Evaluation" />
-    <Card><div className="grid gap-3 sm:grid-cols-3"><Field label="Provider"><Select value={prov} onChange={(e: any) => setProv(e.target.value)}><option value="">Latest prediction (any)</option><option value="gemini">Gemini API</option><option value="deepseek">Local DeepSeek</option></Select></Field>
+    <Card><div className="grid gap-3 sm:grid-cols-3"><Field label="Provider"><Select value={prov} onChange={(e: any) => setProv(e.target.value)}><option value="">Latest prediction (any)</option><option value="gemini">Gemini API</option></Select></Field>
       <Field label="Numeric tolerance"><Input value={tol} onChange={(e: any) => setTol(e.target.value)} /></Field><div className="flex items-end"><Button variant="primary" disabled={busy} onClick={run}>Run evaluation</Button></div></div>
       <p className="mt-3 text-xs text-muted">Ground truth is approved cells only. Unreviewed predictions are never used as truth. Blank vs blank counts as correct; a blank prediction for a value is “missing”; a value for a blank truth is “extra”.</p></Card>
     {err && <div className="mt-3"><Notice tone="bad">{err}</Notice></div>}

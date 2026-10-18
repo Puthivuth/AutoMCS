@@ -14,10 +14,10 @@ from rest_framework.throttling import AnonRateThrottle
 
 from . import models as m, serializers as sz, tasks
 from .permissions import audit, obj_for, scoped
-from .services import evaluation, files, model_manager
+from .services import evaluation, files
 from .services.decimals import normalize
 from .services.providers.base import ProviderError
-from .services.providers.deepseek import get_provider
+from .services.providers import get_provider, get_all_key_slots, clear_key_cooldown
 
 User = get_user_model()
 class LoginThrottle(AnonRateThrottle): scope = "login"
@@ -173,7 +173,7 @@ def _start(user, project, docs, provider, pages):
     if not docs: return bad("No documents selected.")
     job = m.ExtractionJob.objects.create(project=project, provider=provider, model_id=prov.model_id, params={"pages": pages}, created_by=user)
     m.JobItem.objects.bulk_create([m.JobItem(job=job, document=d) for d in docs])
-    tasks.run_extraction_job.apply_async(args=[job.id], queue="local" if provider == "deepseek" else "default")
+    tasks.run_extraction_job.apply_async(args=[job.id], queue="default")
     audit(user, "extract.start", project, job.id, provider=provider, documents=len(docs))
     return Response(sz.JobS(job).data, status=202)
 
@@ -190,10 +190,31 @@ def document_extract(request, pk):
 
 @api_view(["GET"])
 def providers(request):
-    s = m.SiteSettings.get(); out = []
-    for name in ("gemini", "deepseek"):
-        pr = get_provider(name); pb = pr.preflight()
-        out.append({"name": name, "label": pr.label, "model_id": pr.model_id, "problems": pb, "ready": not pb, "default": s.default_provider == name})
+    s = m.SiteSettings.get()
+    out = []
+    # Auto-switch provider (default)
+    pr = get_provider("gemini")
+    pb = pr.preflight()
+    out.append({
+        "name": "gemini",
+        "label": "Gemini API (Auto-switch 1-4)",
+        "model_id": pr.model_id,
+        "problems": pb,
+        "ready": not pb,
+        "default": s.default_provider in ("gemini", "gemini_auto", ""),
+    })
+    # Individual Gemini API key options
+    for slot in range(1, 5):
+        pr_slot = get_provider(f"gemini_{slot}")
+        pb_slot = pr_slot.preflight()
+        out.append({
+            "name": f"gemini_{slot}",
+            "label": f"Gemini API {slot}",
+            "model_id": pr_slot.model_id,
+            "problems": pb_slot,
+            "ready": not pb_slot,
+            "default": s.default_provider == f"gemini_{slot}",
+        })
     return Response(out)
 
 @api_view(["GET"])
@@ -211,7 +232,7 @@ def job_retry(request, pk):
     n = j.items.filter(status__in=["failed", "cancelled"]).update(status="pending", error="")
     if not n: return bad("Nothing to retry.")
     j.status, j.cancel_requested, j.error = "queued", False, ""; j.save()
-    tasks.run_extraction_job.apply_async(args=[j.id], queue="local" if j.provider == "deepseek" else "default")
+    tasks.run_extraction_job.apply_async(args=[j.id], queue="default")
     return Response(sz.JobS(j).data, status=202)
 
 @api_view(["POST"])
@@ -324,22 +345,60 @@ def export_download(request, pk):
     return FileResponse(open(e.file_path, "rb"), as_attachment=True, filename=f"automcs_dataset_{e.id}.zip")
 
 @api_view(["GET"])
-def local_model_status(request): return Response(model_manager.status())
+def local_model_status(request):
+    return Response({
+        "status": "removed",
+        "detail": "Local DeepSeek 1.5B has been removed to conserve server resources. AutoMCS now uses Gemini API (1-4) with automatic failover.",
+        "problems": [],
+        "installed": False,
+        "loaded": False,
+        "progress": 0,
+    })
 
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def local_model_prepare(request):
-    tasks.prepare_local_model.apply_async(queue="local"); audit(request.user, "model.prepare"); return Response({"queued": True}, status=202)
+    return Response({"detail": "Local model has been removed. Please use Gemini API."}, status=400)
 
 @api_view(["GET", "PATCH"])
 @permission_classes([IsAdminUser])
 def site_settings(request):
     s = m.SiteSettings.get()
     if request.method == "PATCH":
-        for k in ("default_provider", "gemini_model", "supervisor", "institution", "contact_email"):
-            if k in request.data: setattr(s, k, request.data[k])
-        s.save(); audit(request.user, "settings.update")
-    return Response({k: getattr(s, k) for k in ("default_provider", "gemini_model", "supervisor", "institution", "contact_email")})
+        for k in (
+            "default_provider", "gemini_model",
+            "gemini_api_key_1", "gemini_api_key_2", "gemini_api_key_3", "gemini_api_key_4",
+            "supervisor", "institution", "contact_email",
+        ):
+            if k in request.data:
+                setattr(s, k, request.data[k])
+        if request.data.get("reset_cooldowns"):
+            for i in range(1, 5):
+                clear_key_cooldown(i)
+        s.save()
+        audit(request.user, "settings.update")
+
+    slots_info = []
+    for slot in get_all_key_slots():
+        key_val = slot["key"]
+        masked = f"{key_val[:6]}...{key_val[-4:]}" if len(key_val) > 10 else ("***" if key_val else "")
+        slots_info.append({
+            "index": slot["index"],
+            "configured": slot["configured"],
+            "source": slot["source"],
+            "masked": masked,
+            "cooling": slot["cooling"],
+            "cooldown_remaining": slot["cooldown_remaining"],
+        })
+
+    fields = (
+        "default_provider", "gemini_model",
+        "gemini_api_key_1", "gemini_api_key_2", "gemini_api_key_3", "gemini_api_key_4",
+        "supervisor", "institution", "contact_email",
+    )
+    data = {k: getattr(s, k) for k in fields}
+    data["gemini_keys"] = slots_info
+    return Response(data)
 
 @api_view(["GET", "POST"])
 def training_runs(request, pk):
