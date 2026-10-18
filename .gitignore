@@ -3,5 +3,5 @@ node_modules
 .next
 __pycache__
 db.sqlite3
-data
-models
+/data/
+/models/
