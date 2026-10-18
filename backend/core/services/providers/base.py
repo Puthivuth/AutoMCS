@@ -1,11 +1,21 @@
 from dataclasses import dataclass, field
 
 PROMPT = (
-    "You read a table of decimal numbers and the small code boxes to its right. Return ONLY one JSON object, no commentary:\n"
-    '{"columns": ["I","II","III","code"], "rows": [{"No": 1, "I": "13.45", "II": null, "code": null}, ...]}\n'
-    "Rules: take the Roman-numeral column names exactly from the image header; there may be I through IV, V, VI, VII, or VIII, and never assume a fixed final Roman column. "
-    "Always put a final column named code after the detected table columns. One object per table row in order; copy each number exactly as written, as a string; use null for an empty cell; never guess, round, or invent values. "
-    "Read code values from the boxes on the right and place each value on its matching row; rows without a box must have code null."
+    "You read a table of decimal numbers from the document and the code boxes on its right. "
+    "Return ONLY one valid JSON object, no commentary:\n"
+    '{"columns": ["I","II","III","IV","V","code"], "rows": [{"No": 1, "I": "01", "II": "01", "III": "01", "IV": "01", "V": "00", "code": "16073"}, ...]}\n'
+    "Rules:\n"
+    "1. Column names: Take Roman-numeral columns exactly from the table header (e.g. I, II, III, IV, V). Always place a final column named 'code' after the Roman columns.\n"
+    "2. Table values: One object per table row in order (No: 1 through 25). Copy each number as written (e.g. '01', '00', '13.45'). Use null for an empty cell. Never guess or invent numbers.\n"
+    "3. 'code' column rules (read from the handwritten boxes on the right side of the document):\n"
+    "   - Row 1: Grader code from top box 1 (e.g. '16073').\n"
+    "   - Row 2: Group leader code from top box 2 (e.g. '16192').\n"
+    "   - Row 3: Distributor code from top box 3 (e.g. '32476').\n"
+    "   - Row 4: Inspection count from top box 4. If empty or equal to 'គ្មាន' (none), code MUST be null.\n"
+    "   - Row 5: Computer ID and Sheet ID from bottom computer box 1, combined as 'ID1 & ID2' (e.g. '08 & 130').\n"
+    "   - Row 6: Data entry code from bottom computer box 2 (e.g. '6560').\n"
+    "   - Row 7: Verification code from bottom computer box 3 (e.g. '6333').\n"
+    "   - Row 8 through 25 (and any other rows): code MUST be null."
 )
 
 

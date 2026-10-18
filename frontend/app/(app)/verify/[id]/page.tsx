@@ -62,9 +62,10 @@ export default function Verify({ params }: { params: { id: string } }) {
           <table className="w-full text-sm"><thead><tr className="text-left text-muted"><th className="p-1">No</th>{cols.map((c: any) => <th key={c} className="p-1">{c}</th>)}</tr></thead>
             <tbody>{Object.keys(grid).map(Number).sort((a, b) => a - b).map((r) => <tr key={r}><td className="p-1 text-muted">{r + 1}</td>
               {cols.map((_: any, ci: number) => { const c = grid[r]?.[ci]; if (!c) return <td key={ci} />;
+                const isCode = (c.column_name || "").toLowerCase() === "code";
                 const ring = c.status === "approved" ? "border-ok bg-ok/10" : c.status === "rejected" || c.flags.includes("invalid_decimal") ? "border-bad" : c.status === "corrected" ? "border-brand" : c.flags.length ? "border-warn" : "border-line";
-                return <td key={ci} className="p-1"><input id={`cell-${r}-${ci}`} defaultValue={shown(c)} key={`${c.id}-${c.status}-${c.verified_value}-${c.predicted_value}`} placeholder="null" inputMode="decimal"
-                  className={`w-20 rounded border bg-bg px-1.5 py-1 tabular-nums ${ring}`} onFocus={() => setSel(c)} onBlur={(e) => save(c, e.target.value)} onKeyDown={(e) => key(e, r, ci)} /></td>; })}</tr>)}</tbody></table>}
+                return <td key={ci} className="p-1"><input id={`cell-${r}-${ci}`} defaultValue={shown(c)} key={`${c.id}-${c.status}-${c.verified_value}-${c.predicted_value}`} placeholder="null" inputMode={isCode ? "text" : "decimal"}
+                  className={`${isCode ? "w-28" : "w-20"} rounded border bg-bg px-1.5 py-1 tabular-nums ${ring}`} onFocus={() => setSel(c)} onBlur={(e) => save(c, e.target.value)} onKeyDown={(e) => key(e, r, ci)} /></td>; })}</tr>)}</tbody></table>}
         <p className="mt-3 text-xs text-muted">Enter moves down, Ctrl+Enter approves the cell and moves down. Edits are normalized to two decimals; the raw AI prediction is kept in history.</p></Card>
       {sel && <Card><div className="flex items-center justify-between"><h2 className="font-semibold">Row {sel.row_index + 1} · column {sel.column_name}</h2><Badge tone={statusTone(sel.status)}>{sel.status}</Badge></div>
         <p className="mt-1 text-sm text-muted">Raw: {sel.raw_text ?? "null"} · AI: {sel.predicted_value ?? "null"} {sel.flags.map((f: string) => <Badge key={f} tone="warn">{f.replace("_", " ")}</Badge>)}</p>

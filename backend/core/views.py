@@ -251,12 +251,19 @@ def _event(c, user, action, source, old, new, note=""):
 
 @api_view(["PATCH"])
 def cell_label(request, pk):
-    c = _cell(request, pk); n = normalize(request.data.get("value"))
-    if n.state == "invalid": return bad("Not a valid decimal number.")
+    c = _cell(request, pk)
+    val = request.data.get("value")
+    if c.column_name.lower() == "code":
+        raw_val = None if val is None else str(val).strip()
+        new_val = None if raw_val in ("", "null", "None", "none", "គ្មាន") else raw_val
+    else:
+        n = normalize(val)
+        if n.state == "invalid": return bad("Not a valid decimal number.")
+        new_val = n.value
     old = c.effective_value; reopened = c.status == "approved"
-    c.verified_value, c.status, c.updated_by = n.value, "corrected", request.user
+    c.verified_value, c.status, c.updated_by = new_val, "corrected", request.user
     c.note = request.data.get("note", c.note); c.save()
-    _event(c, request.user, "reopen" if reopened else "label", "human_correction" if c.predicted_value is not None else "manual", old, n.value, c.note)
+    _event(c, request.user, "reopen" if reopened else "label", "human_correction" if c.predicted_value is not None else "manual", old, new_val, c.note)
     return Response(sz.CellS(c).data)
 
 def _approve(c, user):

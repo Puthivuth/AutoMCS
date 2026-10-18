@@ -12,6 +12,7 @@ from core.services.providers.gemini import (
     get_provider,
     is_quota_or_token_error,
 )
+from django.test import TestCase, override_settings
 from core.services.providers.base import ProviderError
 
 
@@ -22,6 +23,14 @@ class DummyAPIError(Exception):
         super().__init__(f"{code}: {message}")
 
 
+@override_settings(AUTOMCS={
+    "GEMINI_API_KEY_1": "",
+    "GEMINI_API_KEY_2": "",
+    "GEMINI_API_KEY_3": "",
+    "GEMINI_API_KEY_4": "",
+    "GEMINI_API_KEY": "",
+    "GEMINI_MODEL": "gemini-3.8-flash",
+})
 class GeminiMultiKeyTest(TestCase):
     def setUp(self):
         cache.clear()
@@ -108,4 +117,29 @@ class GeminiMultiKeyTest(TestCase):
         # Retired deepseek fallback
         p_ds = get_provider("deepseek")
         self.assertIsInstance(p_ds, GeminiProvider)
+
+    def test_code_column_rules(self):
+        from core.services.tables import validate_table
+        raw_rows = [
+            {"I": "01", "code": "16073"},            # row 1
+            {"I": "00", "code": "16192"},            # row 2
+            {"I": "02", "code": "32476"},            # row 3
+            {"I": "00", "code": "គ្មាន"},            # row 4: "គ្មាន" -> Null
+            {"I": "02", "code": "08 130"},           # row 5: "08 130" -> "08 & 130"
+            {"I": "10", "code": "6560"},             # row 6
+            {"I": "10", "code": "6333"},             # row 7
+            {"I": "08", "code": "some_extra_code"},  # row 8: should be null
+            {"I": "07", "code": "another_code"},     # row 9: should be null
+        ]
+        cols, rows = validate_table({"columns": ["I", "code"], "rows": raw_rows})
+        self.assertEqual(rows[0]["code"], "16073")
+        self.assertEqual(rows[1]["code"], "16192")
+        self.assertEqual(rows[2]["code"], "32476")
+        self.assertIsNone(rows[3]["code"])
+        self.assertEqual(rows[4]["code"], "08 & 130")
+        self.assertEqual(rows[5]["code"], "6560")
+        self.assertEqual(rows[6]["code"], "6333")
+        self.assertIsNone(rows[7]["code"])
+        self.assertIsNone(rows[8]["code"])
+
 
