@@ -17,5 +17,5 @@ export default function Export() {
     {err && <div className="mt-3"><Notice tone="bad">{err}</Notice></div>}
     <div className="mt-4 space-y-2">{jobs.map((j) => <Card key={j.id} className="flex flex-wrap items-center justify-between gap-2 text-sm"><div><b>Export #{j.id}</b> <span className="text-muted">{new Date(j.created_at).toLocaleString()}</span>
       {j.summary?.included != null && <span className="text-muted"> · {j.summary.included} document(s), {j.summary.skipped.length} skipped</span>}{j.error && <span className="text-bad"> · {j.error}</span>}</div>
-      <div className="flex items-center gap-2"><Badge tone={statusTone(j.status)}>{j.status}</Badge>{j.status === "done" && <a className="rounded-lg bg-accent px-3 py-1 text-xs font-medium text-onaccent" href={`/api/exports/${j.id}/download/`}>Download ZIP</a>}</div></Card>)}</div></>);
+      <div className="flex items-center gap-2"><Badge tone={statusTone(j.status)}>{j.status}</Badge>{j.status === "done" && <a download={`automcs_dataset_${j.id}.zip`} className="rounded-lg bg-accent px-3 py-1 text-xs font-medium text-onaccent" href={`/api/exports/${j.id}/download/`}>Download ZIP</a>}{j.status === "failed" && <span className="text-bad">Export failed</span>}</div></Card>)}</div></>);
 }

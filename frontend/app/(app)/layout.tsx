@@ -7,7 +7,7 @@ import { Button, Select } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useWs, WorkspaceProvider } from "@/lib/workspace";
 
-const nav = [["/dashboard", "Dashboard"], ["/projects", "Projects"], ["/data", "Data & AI Prediction"], ["/review", "Review queue"], ["/evaluation", "Evaluation"], ["/export", "Export dataset"], ["/training", "Training"], ["/settings", "Settings"]];
+const nav = [["/dashboard", "Dashboard"], ["/projects", "Projects"], ["/data", "Data & AI Extraction"], ["/review", "Review queue"], ["/evaluation", "Evaluation"], ["/export", "Export dataset"], ["/training", "Training"], ["/settings", "Settings"]];
 
 function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname(); const router = useRouter(); const { projects, pid, setPid } = useWs();

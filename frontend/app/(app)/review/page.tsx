@@ -11,6 +11,7 @@ export default function Review() {
   return (<><PageHeader title="Review queue"><Select className="!w-56" value={reason} onChange={(e: any) => setReason(e.target.value)}>{R.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</Select>
     <Select className="!w-40" value={prov} onChange={(e: any) => setProv(e.target.value)}><option value="">Any provider</option><option value="gemini">Gemini</option><option value="deepseek">DeepSeek</option></Select></PageHeader>
     {err && <Notice tone="bad">{err}</Notice>}
+    <div className="mb-3"><Notice>Open a document to compare its original image on the left with editable extracted columns on the right.</Notice></div>
     {d?.invalid_json?.length > 0 && <div className="mb-3"><Notice>Invalid model output on {d.invalid_json.length} document(s): {d.invalid_json.map((x: any) => <Link key={x.document} className="underline mr-2" href={`/verify/${x.document}`}>{x.document__original_name}</Link>)}</Notice></div>}
     <Table><thead className="bg-soft text-muted"><tr><th className="p-2">Document</th><th>Cell</th><th>Raw</th><th>AI value</th><th>Flags</th><th>Status</th></tr></thead>
       <tbody>{d?.cells.map((c: any) => <tr key={c.id} className="border-t border-line"><td className="p-2"><Link className="underline" href={`/verify/${c.document}`}>{c.document_name}</Link></td><td>r{c.row_index + 1} · {c.column_name}</td><td>{c.raw_text ?? "null"}</td><td>{c.predicted_value ?? "null"}</td>

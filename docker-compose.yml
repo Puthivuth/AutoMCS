@@ -1,5 +1,8 @@
 x-backend: &backend
-  build: ./backend
+  build:
+    context: ./backend
+    args:
+      INSTALL_LOCAL: ${INSTALL_LOCAL:-0}
   env_file: .env
   environment:
     POSTGRES_HOST: db
@@ -7,12 +10,21 @@ x-backend: &backend
     AUTOMCS_DATA_ROOT: /data
     AUTOMCS_MODELS_ROOT: /models
   volumes: ["${AUTOMCS_DATA_HOST}:/data", "${AUTOMCS_MODELS_HOST}:/models"]   # survive redeploys
-  depends_on: [db, redis]
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_started
 
 services:
   db:
     image: postgres:16
     env_file: .env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     volumes: ["${AUTOMCS_PGDATA_HOST}:/var/lib/postgresql/data"]
   redis:
     image: redis:7
@@ -25,9 +37,17 @@ services:
     command: celery -A config worker -Q default -c 2 -l info
   worker-local:  # holds the local model in memory: keep concurrency at 1
     <<: *backend
+    build:
+      context: ./backend
+      args:
+        INSTALL_LOCAL: "1"
+    profiles: [local]
     command: celery -A config worker -Q local -c 1 -l info
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://backend:8000
     ports: ["3000:3000"]
     environment: { BACKEND_URL: "http://backend:8000" }
     depends_on: [backend]

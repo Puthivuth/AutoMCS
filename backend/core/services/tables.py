@@ -37,6 +37,10 @@ def validate_table(obj: dict):
         raise SchemaError("'columns' must be a non-empty list of strings.")
     if not isinstance(rows, list) or not all(isinstance(r, dict) for r in rows):
         raise SchemaError("'rows' must be a list of objects.")
+    code = next((c for c in cols if c.lower() == "code"), None)
+    cols = [c for c in cols if c.lower() != "code"] + [code or "code"]
+    for row in rows:
+        row.setdefault("code", None)
     return cols, rows
 
 

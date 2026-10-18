@@ -1,10 +1,11 @@
 from dataclasses import dataclass, field
 
 PROMPT = (
-    "You read a table of decimal numbers. Return ONLY one JSON object, no commentary:\n"
-    '{"columns": ["I","II",...], "rows": [{"No": 1, "I": "13.45", "II": null}, ...]}\n'
-    "Rules: take column names from the header; one object per table row in order; copy each number exactly as "
-    "written, as a string; use null for an empty cell; never guess, round, or invent values."
+    "You read a table of decimal numbers and the small code boxes to its right. Return ONLY one JSON object, no commentary:\n"
+    '{"columns": ["I","II","III","code"], "rows": [{"No": 1, "I": "13.45", "II": null, "code": null}, ...]}\n'
+    "Rules: take the Roman-numeral column names exactly from the image header; there may be I through IV, V, VI, VII, or VIII, and never assume a fixed final Roman column. "
+    "Always put a final column named code after the detected table columns. One object per table row in order; copy each number exactly as written, as a string; use null for an empty cell; never guess, round, or invent values. "
+    "Read code values from the boxes on the right and place each value on its matching row; rows without a box must have code null."
 )
 
 

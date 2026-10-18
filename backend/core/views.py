@@ -103,11 +103,22 @@ def dashboard(request, pk):
 
 
 # ---------- documents ----------
-@api_view(["GET", "POST"])
+@api_view(["GET", "POST", "DELETE"])
 def project_documents(request, pk):
     p = get_object_or_404(m.Project.for_user(request.user), pk=pk)
     if request.method == "GET":
         return Response(sz.DocumentS(m.Document.objects.filter(project=p).prefetch_related("cells"), many=True).data)
+    if request.method == "DELETE":
+        ids = request.data.get("document_ids", [])
+        if not isinstance(ids, list) or not ids: return bad("Select at least one document.")
+        docs = list(m.Document.objects.filter(project=p, id__in=ids))
+        for d in docs:
+            if d.file: d.file.delete(save=False)
+        m.JobItem.objects.filter(document__in=docs).delete()
+        m.Prediction.objects.filter(document__in=docs).delete()
+        m.Document.objects.filter(id__in=[d.id for d in docs]).delete()
+        audit(request.user, "documents.delete", p, deleted=len(docs))
+        return Response({"deleted": len(docs)})
     fl = request.FILES.getlist("files"); paths = request.POST.getlist("paths")
     if len(fl) > settings.AUTOMCS["MAX_BATCH_FILES"]: return bad(f"At most {settings.AUTOMCS['MAX_BATCH_FILES']} files per request.")
     res = []
